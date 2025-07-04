@@ -1,285 +1,293 @@
 <script>
-  import { createEventDispatcher, onMount } from 'svelte';
-  import { extractVoiceFeatures } from '$lib/services/biometrics.js';
-  
+  import { createEventDispatcher } from "svelte";
+  import {
+    Mic,
+    CheckCircle,
+    Square,
+    Play,
+    RotateCcw,
+    Check,
+    AlertCircle,
+  } from "lucide-svelte";
+
   const dispatch = createEventDispatcher();
-  
+
+  export let script = "";
+  export let language = "en";
+
   let mediaRecorder;
   let audioChunks = [];
   let isRecording = false;
-  let isPaused = false;
-  let recordingTime = 0;
-  let recordingTimer;
-  let audioBlob = null;
+  let recordedAudio = null;
   let audioUrl = null;
-  let error = '';
-  let isProcessing = false;
-  
-  const MAX_RECORDING_TIME = 60; // 60 seconds
-  const MIN_RECORDING_TIME = 5; // 5 seconds
-  
-  onMount(() => {
-    return () => {
-      if (recordingTimer) {
-        clearInterval(recordingTimer);
-      }
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
-      }
-    };
-  });
-  
+  let recordingTime = 0;
+  let recordingInterval;
+  let error = "";
+  let audioSupported = false;
+
+  const translations = {
+    en: {
+      readScript: "Please read the following script aloud:",
+      startRecording: "Start Recording",
+      stopRecording: "Stop Recording",
+      playRecording: "Play Recording",
+      retakeRecording: "Retake Recording",
+      useRecording: "Use This Recording",
+      recordingTime: "Recording Time",
+      noMicrophone: "Microphone not supported on this device",
+      microphoneError: "Unable to access microphone. Please check permissions.",
+      readyToRecord: "Ready to record your voice",
+      recording: "Recording...",
+      recordingComplete: "Recording complete",
+    },
+    es: {
+      readScript: "Por favor lea el siguiente guión en voz alta:",
+      startRecording: "Iniciar Grabación",
+      stopRecording: "Detener Grabación",
+      playRecording: "Reproducir Grabación",
+      retakeRecording: "Volver a Grabar",
+      useRecording: "Usar Esta Grabación",
+      recordingTime: "Tiempo de Grabación",
+      noMicrophone: "Micrófono no compatible con este dispositivo",
+      microphoneError:
+        "No se puede acceder al micrófono. Verifique los permisos.",
+      readyToRecord: "Listo para grabar tu voz",
+      recording: "Grabando...",
+      recordingComplete: "Grabación completa",
+    },
+    ar: {
+      readScript: "يرجى قراءة النص التالي بصوت عالٍ:",
+      startRecording: "بدء التسجيل",
+      stopRecording: "إيقاف التسجيل",
+      playRecording: "تشغيل التسجيل",
+      retakeRecording: "إعادة التسجيل",
+      useRecording: "استخدام هذا التسجيل",
+      recordingTime: "وقت التسجيل",
+      noMicrophone: "الميكروفون غير مدعوم على هذا الجهاز",
+      microphoneError: "تعذر الوصول إلى الميكروفون. يرجى التحقق من الأذونات.",
+      readyToRecord: "جاهز لتسجيل صوتك",
+      recording: "جاري التسجيل...",
+      recordingComplete: "اكتمل التسجيل",
+    },
+  };
+
+  $: t = translations[language] || translations.en;
+  $: isRtl = language === "ar";
+
+  $: if (typeof window !== "undefined") {
+    audioSupported = !!(
+      navigator.mediaDevices && navigator.mediaDevices.getUserMedia
+    );
+  }
+
+  function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  }
+
   async function startRecording() {
     try {
-      error = '';
+      if (!audioSupported) {
+        error = t.noMicrophone;
+        return;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
       audioChunks = [];
-      recordingTime = 0;
-      
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 44100
-        } 
-      });
-      
-      mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
-      
+
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunks.push(event.data);
-        }
+        audioChunks.push(event.data);
       };
-      
-      mediaRecorder.onstop = async () => {
-        const blob = new Blob(audioChunks, { type: 'audio/webm' });
-        audioBlob = blob;
-        audioUrl = URL.createObjectURL(blob);
-        
-        // Stop all tracks
-        stream.getTracks().forEach(track => track.stop());
-        
-        // Process audio if minimum time met
-        if (recordingTime >= MIN_RECORDING_TIME) {
-          await processAudio(blob);
-        }
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+        recordedAudio = audioBlob;
+        audioUrl = URL.createObjectURL(audioBlob);
+
+        // Stop all tracks to free up the microphone
+        stream.getTracks().forEach((track) => track.stop());
+
+        dispatch("recording-complete", {
+          audio: audioBlob,
+          audioUrl: audioUrl,
+          duration: recordingTime,
+        });
       };
-      
+
       mediaRecorder.start();
       isRecording = true;
-      
-      // Start timer
-      recordingTimer = setInterval(() => {
+      recordingTime = 0;
+      error = "";
+
+      recordingInterval = setInterval(() => {
         recordingTime++;
-        if (recordingTime >= MAX_RECORDING_TIME) {
-          stopRecording();
-        }
       }, 1000);
-      
     } catch (err) {
-      error = 'Microphone access denied or not available';
-      console.error('Recording error:', err);
+      console.error("Recording error:", err);
+      error = t.microphoneError;
+      isRecording = false;
     }
   }
-  
+
   function stopRecording() {
     if (mediaRecorder && isRecording) {
       mediaRecorder.stop();
       isRecording = false;
-      isPaused = false;
-      
-      if (recordingTimer) {
-        clearInterval(recordingTimer);
-      }
-      
-      if (recordingTime < MIN_RECORDING_TIME) {
-        error = `Recording too short. Minimum ${MIN_RECORDING_TIME} seconds required.`;
-        resetRecording();
-      }
+      clearInterval(recordingInterval);
     }
   }
-  
-  function pauseRecording() {
-    if (mediaRecorder && isRecording) {
-      if (isPaused) {
-        mediaRecorder.resume();
-        isPaused = false;
-      } else {
-        mediaRecorder.pause();
-        isPaused = true;
-      }
-    }
-  }
-  
-  function resetRecording() {
-    if (recordingTimer) {
-      clearInterval(recordingTimer);
-    }
-    
+
+  function playRecording() {
     if (audioUrl) {
-      URL.revokeObjectURL(audioUrl);
-      audioUrl = null;
-    }
-    
-    audioBlob = null;
-    audioChunks = [];
-    isRecording = false;
-    isPaused = false;
-    recordingTime = 0;
-    error = '';
-  }
-  
-  async function processAudio(blob) {
-    try {
-      isProcessing = true;
-      error = '';
-      
-      const features = await extractVoiceFeatures(blob);
-      
-      dispatch('capture', {
-        recording: blob,
-        features: features
+      const audio = new Audio(audioUrl);
+      audio.play().catch((err) => {
+        console.error("Playback error:", err);
+        error = "Failed to play recording";
       });
-      
-    } catch (err) {
-      error = 'Failed to process audio recording';
-      console.error('Audio processing error:', err);
-    } finally {
-      isProcessing = false;
     }
   }
-  
-  function formatTime(seconds) {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+
+  function retakeRecording() {
+    recordedAudio = null;
+    audioUrl = null;
+    recordingTime = 0;
+    error = "";
+    audioChunks = [];
+  }
+
+  function useRecording() {
+    if (recordedAudio) {
+      dispatch("recording-accepted", {
+        audio: recordedAudio,
+        audioUrl: audioUrl,
+        duration: recordingTime,
+      });
+    }
   }
 </script>
 
-<div class="voice-recorder">
-  {#if !isRecording && !audioBlob}
-    <div class="bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-      <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-        <i data-lucide="mic" class="w-8 h-8 text-gray-400"></i>
+<div class="voice-recorder" dir={isRtl ? "rtl" : "ltr"}>
+  <!-- Script Display -->
+  {#if script}
+    <div class="mb-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-3">{t.readScript}</h3>
+      <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <p class="text-gray-800 leading-relaxed text-sm md:text-base">
+          {script}
+        </p>
       </div>
-      <p class="text-gray-600 mb-4">
-        Click to start recording your voice<br>
-        <span class="text-sm">Minimum {MIN_RECORDING_TIME} seconds, maximum {MAX_RECORDING_TIME} seconds</span>
-      </p>
-      <button 
-        on:click={startRecording}
-        class="btn-primary"
-        disabled={isProcessing}
-      >
-        <i data-lucide="mic" class="w-4 h-4 mr-2"></i>
-        Start Recording
-      </button>
     </div>
   {/if}
-  
-  {#if isRecording}
-    <div class="text-center">
-      <div class="relative mb-6">
-        <div class="w-24 h-24 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-4 {isPaused ? 'opacity-50' : 'animate-pulse'}">
-          <i data-lucide="mic" class="w-12 h-12 text-white"></i>
-        </div>
-        
-        <div class="text-2xl font-mono text-gray-900 mb-2">
-          {formatTime(recordingTime)}
-        </div>
-        
-        <div class="text-sm text-gray-600">
-          {isPaused ? 'Recording paused' : 'Recording in progress...'}
-        </div>
-        
-        <div class="w-full bg-gray-200 rounded-full h-2 mt-4">
-          <div 
-            class="bg-red-500 h-2 rounded-full transition-all duration-1000"
-            style="width: {(recordingTime / MAX_RECORDING_TIME) * 100}%"
-          ></div>
-        </div>
+
+  <!-- Recording Interface -->
+  <div class="bg-white rounded-xl shadow-lg p-6">
+    <!-- Recording Status -->
+    <div class="text-center mb-6">
+      <div
+        class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4"
+      >
+        {#if isRecording}
+          <div class="w-4 h-4 bg-red-600 rounded-full animate-pulse"></div>
+        {:else if recordedAudio}
+          <CheckCircle size={32} strokeWidth={2} class="text-green-600" />
+        {:else}
+          <Mic size={32} strokeWidth={2} class="text-gray-600" />
+        {/if}
       </div>
-      
-      <div class="flex justify-center space-x-3">
-        <button 
-          on:click={pauseRecording}
-          class="btn-outline"
-        >
-          <i data-lucide="{isPaused ? 'play' : 'pause'}" class="w-4 h-4 mr-2"></i>
-          {isPaused ? 'Resume' : 'Pause'}
+
+      <p class="text-gray-600">
+        {#if isRecording}
+          {t.recording} {formatTime(recordingTime)}
+        {:else if recordedAudio}
+          {t.recordingComplete}
+        {:else}
+          {t.readyToRecord}
+        {/if}
+      </p>
+    </div>
+
+    <!-- Recording Controls -->
+    <div class="flex flex-wrap gap-4 justify-center">
+      {#if !recordedAudio}
+        {#if !isRecording}
+          {#if audioSupported}
+            <button on:click={startRecording} class="btn-primary">
+              <Mic size={16} strokeWidth={2} class="mr-2" />
+              {t.startRecording}
+            </button>
+          {:else}
+            <div class="text-center">
+              <p class="text-gray-500">{t.noMicrophone}</p>
+            </div>
+          {/if}
+        {:else}
+          <button on:click={stopRecording} class="btn-outline">
+            <Square size={16} strokeWidth={2} class="mr-2" />
+            {t.stopRecording}
+          </button>
+          <div class="flex items-center text-red-600">
+            <div
+              class="w-2 h-2 bg-red-600 rounded-full animate-pulse mr-2"
+            ></div>
+            <span class="font-mono">{formatTime(recordingTime)}</span>
+          </div>
+        {/if}
+      {:else}
+        <!-- Playback Controls -->
+        <button on:click={playRecording} class="btn-outline">
+          <Play size={16} strokeWidth={2} class="mr-2" />
+          {t.playRecording}
         </button>
-        
-        <button 
-          on:click={stopRecording}
-          class="btn-primary"
-          disabled={recordingTime < MIN_RECORDING_TIME}
-        >
-          <i data-lucide="square" class="w-4 h-4 mr-2"></i>
-          Stop Recording
+        <button on:click={retakeRecording} class="btn-outline">
+          <RotateCcw size={16} strokeWidth={2} class="mr-2" />
+          {t.retakeRecording}
         </button>
-      </div>
-      
-      {#if recordingTime < MIN_RECORDING_TIME}
-        <p class="text-amber-600 text-sm mt-2">
-          Keep recording for at least {MIN_RECORDING_TIME - recordingTime} more seconds
-        </p>
+        <button on:click={useRecording} class="btn-primary">
+          <Check size={16} strokeWidth={2} class="mr-2" />
+          {t.useRecording}
+        </button>
       {/if}
     </div>
-  {/if}
-  
-  {#if audioBlob}
-    <div class="text-center">
-      <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-4">
-        <div class="flex items-center justify-center mb-4">
-          <i data-lucide="volume-2" class="w-8 h-8 text-gray-400"></i>
-        </div>
-        
-        <audio 
-          controls 
-          src={audioUrl}
-          class="w-full mb-4"
-        ></audio>
-        
-        <div class="text-sm text-gray-600">
-          Recording length: {formatTime(recordingTime)}
-        </div>
-      </div>
-      
-      <div class="flex justify-center space-x-3">
-        <button 
-          on:click={resetRecording}
-          class="btn-outline"
-          disabled={isProcessing}
+
+    <!-- Recording Time Display -->
+    {#if recordedAudio && recordingTime > 0}
+      <div class="mt-4 text-center">
+        <span class="text-sm text-gray-500"
+          >{t.recordingTime}: {formatTime(recordingTime)}</span
         >
-          <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i>
-          Record Again
-        </button>
-        
-        <div class="flex items-center text-emerald-600">
-          {#if isProcessing}
-            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-600 mr-2"></div>
-            <span class="text-sm font-medium">Processing...</span>
-          {:else}
-            <i data-lucide="check-circle" class="w-4 h-4 mr-2"></i>
-            <span class="text-sm font-medium">Recording Complete</span>
-          {/if}
-        </div>
       </div>
-    </div>
-  {/if}
-  
+    {/if}
+  </div>
+
+  <!-- Error Display -->
   {#if error}
-    <div class="error-message">
-      <i data-lucide="alert-circle" class="w-4 h-4 mr-2"></i>
-      {error}
+    <div class="mt-4 bg-red-50 border border-red-200 rounded-lg p-4">
+      <div class="flex items-center">
+        <AlertCircle size={20} strokeWidth={2} class="text-red-600 mr-2" />
+        <p class="text-red-800">{error}</p>
+      </div>
     </div>
   {/if}
 </div>
 
-<script>
-  if (typeof lucide !== 'undefined') {
-    lucide.createIcons();
+<style>
+  .voice-recorder {
+    max-width: 100%;
   }
-</script>
+
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+</style>
