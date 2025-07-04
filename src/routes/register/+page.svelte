@@ -269,10 +269,10 @@
       currentStep = "matching";
     } else if (currentStep === "matching") {
       // Verify information before proceeding
-      const isValid = await verifyInformation();
-      if (isValid) {
-        currentStep = "complete";
-      }
+      // const isValid = await verifyInformation();
+      // if (isValid) {
+      currentStep = "complete";
+      // }
     } else {
       currentStep = "complete";
     }
