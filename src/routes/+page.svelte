@@ -47,7 +47,7 @@
           "Our dedicated team provides round-the-clock assistance in multiple languages",
       },
       howItWorks: {
-        title: "How ReuniteAI Works",
+        title: "How Aman Works",
         step1: "Upload Your Information",
         step1Desc:
           "Provide your photo, voice sample, and background information securely",
@@ -60,7 +60,7 @@
       },
     },
     es: {
-      title: "ReuniteAI",
+      title: "Aman",
       subtitle: "Reconectando Familias a través de IA",
       heroDescription:
         "Coincidencias biométricas avanzadas y análisis impulsado por IA para ayudar a las familias separadas por conflictos y desplazamientos a encontrarse nuevamente.",
@@ -89,7 +89,7 @@
       },
     },
     ar: {
-      title: "ReuniteAI",
+      title: "Aman",
       subtitle: "إعادة توصيل الأسر من خلال الذكاء الاصطناعي",
       heroDescription:
         "المطابقة البيومترية المتقدمة والتحليل المدعوم بالذكاء الاصطناعي لمساعدة الأسر المنفصلة بسبب النزاعات والنزوح في العثور على بعضها البعض مرة أخرى.",
@@ -116,7 +116,7 @@
       },
     },
     bn: {
-      title: "ReuniteAI",
+      title: "Aman",
       subtitle: "এআই এর মাধ্যমে পরিবারের পুনর্মিলন",
       heroDescription:
         "উন্নত বায়োমেট্রিক ম্যাচিং এবং এআই-চালিত বিশ্লেষণ যা দ্বন্দ্ব এবং বাস্তুচ্যুতির কারণে বিচ্ছিন্ন পরিবারগুলিকে আবার একসাথে খুঁজে পেতে সাহায্য করে।",

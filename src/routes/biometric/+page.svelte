@@ -37,7 +37,7 @@
 </script>
 
 <svelte:head>
-    <title>{t.title} - ReuniteAI</title>
+    <title>{t.title} - Aman</title>
     <meta name="description" content={t.subtitle} />
 </svelte:head>
 
@@ -60,7 +60,7 @@
                     </div>
                     <div class="ml-3">
                         <h1 class="text-lg font-semibold text-gray-900">
-                            ReuniteAI
+                            Aman
                         </h1>
                     </div>
                 </div>

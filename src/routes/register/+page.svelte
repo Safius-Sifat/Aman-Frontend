@@ -538,7 +538,7 @@
             </div>
           </div>
           <div class="ml-3">
-            <h1 class="text-lg font-semibold text-gray-900">ReuniteAI</h1>
+            <h1 class="text-lg font-semibold text-gray-900">Aman</h1>
           </div>
         </div>
 
