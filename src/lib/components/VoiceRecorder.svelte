@@ -1,5 +1,14 @@
 <script>
   import { createEventDispatcher } from "svelte";
+  import {
+    Mic,
+    CheckCircle,
+    Square,
+    Play,
+    RotateCcw,
+    Check,
+    AlertCircle,
+  } from "lucide-svelte";
 
   const dispatch = createEventDispatcher();
 
@@ -182,9 +191,9 @@
         {#if isRecording}
           <div class="w-4 h-4 bg-red-600 rounded-full animate-pulse"></div>
         {:else if recordedAudio}
-          <i data-lucide="check-circle" class="w-8 h-8 text-green-600"></i>
+          <CheckCircle size={32} strokeWidth={2} class="text-green-600" />
         {:else}
-          <i data-lucide="mic" class="w-8 h-8 text-gray-600"></i>
+          <Mic size={32} strokeWidth={2} class="text-gray-600" />
         {/if}
       </div>
 
@@ -205,7 +214,7 @@
         {#if !isRecording}
           {#if audioSupported}
             <button on:click={startRecording} class="btn-primary">
-              <i data-lucide="mic" class="w-4 h-4 mr-2"></i>
+              <Mic size={16} strokeWidth={2} class="mr-2" />
               {t.startRecording}
             </button>
           {:else}
@@ -215,7 +224,7 @@
           {/if}
         {:else}
           <button on:click={stopRecording} class="btn-outline">
-            <i data-lucide="square" class="w-4 h-4 mr-2"></i>
+            <Square size={16} strokeWidth={2} class="mr-2" />
             {t.stopRecording}
           </button>
           <div class="flex items-center text-red-600">
@@ -228,15 +237,15 @@
       {:else}
         <!-- Playback Controls -->
         <button on:click={playRecording} class="btn-outline">
-          <i data-lucide="play" class="w-4 h-4 mr-2"></i>
+          <Play size={16} strokeWidth={2} class="mr-2" />
           {t.playRecording}
         </button>
         <button on:click={retakeRecording} class="btn-outline">
-          <i data-lucide="rotate-ccw" class="w-4 h-4 mr-2"></i>
+          <RotateCcw size={16} strokeWidth={2} class="mr-2" />
           {t.retakeRecording}
         </button>
         <button on:click={useRecording} class="btn-primary">
-          <i data-lucide="check" class="w-4 h-4 mr-2"></i>
+          <Check size={16} strokeWidth={2} class="mr-2" />
           {t.useRecording}
         </button>
       {/if}
@@ -256,15 +265,11 @@
   {#if error}
     <div class="mt-4 bg-red-50 border border-red-200 rounded-lg p-4">
       <div class="flex items-center">
-        <i data-lucide="alert-circle" class="w-5 h-5 text-red-600 mr-2"></i>
+        <AlertCircle size={20} strokeWidth={2} class="text-red-600 mr-2" />
         <p class="text-red-800">{error}</p>
       </div>
     </div>
   {/if}
-</div>
-<div class="error-message">
-  <i data-lucide="alert-circle" class="w-4 h-4 mr-2"></i>
-  {error}
 </div>
 
 <style>

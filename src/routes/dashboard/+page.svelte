@@ -3,11 +3,23 @@
   import { goto } from "$app/navigation";
   import { user } from "$lib/stores/user.js";
   import { language } from "$lib/stores/language.js";
+  import { supabase } from "$lib/supabase.js";
+  import {
+    Users,
+    Bell,
+    Share2,
+    LogOut,
+    User,
+    ChevronRight,
+    Settings,
+    AlertCircle,
+  } from "lucide-svelte";
 
   let matches = [];
   let notifications = [];
   let loading = true;
   let error = "";
+  let currentUser = null;
 
   const translations = {
     en: {
@@ -85,42 +97,126 @@
   $: isRtl = $language === "ar";
 
   onMount(async () => {
-    if (!$user) {
+    // Check if user is authenticated with Supabase
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) {
       goto("/");
       return;
+    }
+
+    currentUser = session.user;
+
+    // Update user store with Supabase user data
+    user.set({
+      id: currentUser.id,
+      email: currentUser.email,
+      firstName:
+        currentUser.user_metadata?.full_name?.split(" ")[0] ||
+        currentUser.user_metadata?.name ||
+        "User",
+      lastName:
+        currentUser.user_metadata?.full_name?.split(" ").slice(1).join(" ") ||
+        "",
+      avatar: currentUser.user_metadata?.avatar_url || null,
+    });
+
+    // Load registration data from localStorage if it exists
+    const registrationData = localStorage.getItem("registrationData");
+    if (registrationData) {
+      try {
+        const data = JSON.parse(registrationData);
+        // Store registration data in Supabase or process it
+        await processRegistrationData(data);
+        localStorage.removeItem("registrationData"); // Clean up after processing
+      } catch (err) {
+        console.error("Error processing registration data:", err);
+      }
     }
 
     await loadDashboardData();
   });
 
+  async function processRegistrationData(data) {
+    try {
+      // Store registration data in Supabase database
+      const { error } = await supabase.from("user_profiles").upsert({
+        user_id: currentUser.id,
+        background_info: data.backgroundInfo,
+        personal_info: data.personalInfo,
+        additional_info: data.additionalInfo,
+        has_photo: !!data.capturedImage,
+        has_voice: !!data.voiceRecording,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      if (error) {
+        console.error("Error storing registration data:", error);
+      }
+    } catch (err) {
+      console.error("Error processing registration data:", err);
+    }
+  }
+
   async function loadDashboardData() {
     try {
       loading = true;
 
-      // Load potential matches
-      const matchesResponse = await fetch("/api/matching");
-      if (matchesResponse.ok) {
-        const matchesData = await matchesResponse.json();
-        matches = matchesData.matches || [];
+      // Load potential matches from Supabase
+      const { data: matchesData, error: matchesError } = await supabase
+        .from("potential_matches")
+        .select("*")
+        .eq("user_id", currentUser.id)
+        .order("score", { ascending: false });
+
+      if (matchesError) {
+        console.error("Error loading matches:", matchesError);
+      } else {
+        matches = matchesData || [];
       }
 
-      // Load notifications
-      const notificationsResponse = await fetch("/api/notifications");
-      if (notificationsResponse.ok) {
-        const notificationsData = await notificationsResponse.json();
-        notifications = notificationsData.notifications || [];
+      // Load notifications from Supabase
+      const { data: notificationsData, error: notificationsError } =
+        await supabase
+          .from("notifications")
+          .select("*")
+          .eq("user_id", currentUser.id)
+          .order("created_at", { ascending: false })
+          .limit(10);
+
+      if (notificationsError) {
+        console.error("Error loading notifications:", notificationsError);
+      } else {
+        notifications = notificationsData || [];
       }
     } catch (err) {
       error = "Failed to load dashboard data";
+      console.error("Dashboard data loading error:", err);
     } finally {
       loading = false;
     }
   }
 
-  function handleLogout() {
-    user.set(null);
-    localStorage.removeItem("user");
-    goto("/");
+  async function handleLogout() {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("Error signing out:", error);
+      } else {
+        user.set(null);
+        localStorage.clear();
+        goto("/");
+      }
+    } catch (err) {
+      console.error("Logout error:", err);
+      // Force logout even if there's an error
+      user.set(null);
+      localStorage.clear();
+      goto("/");
+    }
   }
 
   function getMatchScoreColor(score) {
@@ -148,9 +244,10 @@
         <div class="flex items-center">
           <div class="flex items-center">
             <div
-              class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center"
+              class="w-8 h-8 rounded-lg flex items-center justify-center"
+              style="background-color: #1A8161;"
             >
-              <i data-lucide="users" class="w-5 h-5 text-white"></i>
+              <Users size={20} strokeWidth={2} class="text-white" />
             </div>
             <div class="ml-3">
               <h1 class="text-lg font-semibold text-gray-900">ReuniteAI</h1>
@@ -163,7 +260,7 @@
             on:click={() => goto("/connections")}
             class="flex items-center text-gray-600 hover:text-gray-900 px-3 py-2"
           >
-            <i data-lucide="share-2" class="w-4 h-4 mr-2"></i>
+            <Share2 size={16} strokeWidth={2} class="mr-2" />
             {t.viewConnections}
           </button>
 
@@ -171,7 +268,7 @@
             <button
               class="flex items-center text-gray-600 hover:text-gray-900 px-3 py-2"
             >
-              <i data-lucide="bell" class="w-4 h-4 mr-2"></i>
+              <Bell size={16} strokeWidth={2} class="mr-2" />
               {#if notifications.length > 0}
                 <span
                   class="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center"
@@ -186,7 +283,7 @@
             on:click={handleLogout}
             class="flex items-center text-gray-600 hover:text-gray-900 px-3 py-2"
           >
-            <i data-lucide="log-out" class="w-4 h-4 mr-2"></i>
+            <LogOut size={16} strokeWidth={2} class="mr-2" />
             {t.logout}
           </button>
         </div>
@@ -209,13 +306,13 @@
     {#if loading}
       <div class="flex justify-center items-center h-64">
         <div
-          class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"
+          class="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"
         ></div>
       </div>
     {:else if error}
       <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
         <div class="flex items-center">
-          <i data-lucide="alert-circle" class="w-5 h-5 text-red-600 mr-3"></i>
+          <AlertCircle size={20} strokeWidth={2} class="text-red-600 mr-3" />
           <p class="text-red-700">{error}</p>
         </div>
       </div>
@@ -231,7 +328,7 @@
               </h2>
               <button
                 on:click={() => goto("/connections")}
-                class="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                class="text-green-600 hover:text-green-700 text-sm font-medium"
               >
                 {t.viewConnections}
               </button>
@@ -242,7 +339,7 @@
                 <div
                   class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4"
                 >
-                  <i data-lucide="users" class="w-8 h-8 text-gray-400"></i>
+                  <Users size={32} strokeWidth={1.5} class="text-gray-400" />
                 </div>
                 <p class="text-gray-500 text-lg mb-2">{t.noMatches}</p>
                 <p class="text-gray-400 text-sm">{t.matchesDesc}</p>
@@ -258,8 +355,11 @@
                         <div
                           class="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center"
                         >
-                          <i data-lucide="user" class="w-6 h-6 text-gray-400"
-                          ></i>
+                          <User
+                            size={24}
+                            strokeWidth={2}
+                            class="text-gray-400"
+                          />
                         </div>
                         <div>
                           <h3 class="font-semibold text-gray-900">
@@ -316,12 +416,14 @@
                 class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 rounded-lg"
               >
                 <div class="flex items-center">
-                  <i data-lucide="share-2" class="w-4 h-4 text-gray-400 mr-3"
-                  ></i>
+                  <Share2
+                    size={16}
+                    strokeWidth={2}
+                    class="text-gray-400 mr-3"
+                  />
                   <span class="text-sm text-gray-700">{t.viewConnections}</span>
                 </div>
-                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400"
-                ></i>
+                <ChevronRight size={16} strokeWidth={2} class="text-gray-400" />
               </button>
 
               <button
@@ -329,11 +431,10 @@
                 class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 rounded-lg"
               >
                 <div class="flex items-center">
-                  <i data-lucide="user" class="w-4 h-4 text-gray-400 mr-3"></i>
+                  <User size={16} strokeWidth={2} class="text-gray-400 mr-3" />
                   <span class="text-sm text-gray-700">{t.updateProfile}</span>
                 </div>
-                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400"
-                ></i>
+                <ChevronRight size={16} strokeWidth={2} class="text-gray-400" />
               </button>
 
               <button
@@ -341,12 +442,14 @@
                 class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 rounded-lg"
               >
                 <div class="flex items-center">
-                  <i data-lucide="settings" class="w-4 h-4 text-gray-400 mr-3"
-                  ></i>
+                  <Settings
+                    size={16}
+                    strokeWidth={2}
+                    class="text-gray-400 mr-3"
+                  />
                   <span class="text-sm text-gray-700">{t.settings}</span>
                 </div>
-                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400"
-                ></i>
+                <ChevronRight size={16} strokeWidth={2} class="text-gray-400" />
               </button>
             </div>
           </div>
@@ -357,11 +460,11 @@
             <div class="space-y-3">
               {#each notifications as notification}
                 <div class="flex items-start space-x-3">
-                  <div class="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                  <div class="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
                   <div>
                     <p class="text-sm text-gray-700">{notification.message}</p>
                     <p class="text-xs text-gray-500">
-                      {notification.timestamp}
+                      {new Date(notification.created_at).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
@@ -377,3 +480,43 @@
     {/if}
   </main>
 </div>
+
+<style>
+  :global(.card) {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  }
+
+  :global(.btn-primary) {
+    background-color: #1a8161;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: all 0.2s ease-in-out;
+    border: none;
+    cursor: pointer;
+  }
+
+  :global(.btn-primary:hover) {
+    background-color: #156b54;
+  }
+
+  :global(.btn-outline) {
+    background-color: transparent;
+    color: #1a8161;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: all 0.2s ease-in-out;
+    border: 1px solid #1a8161;
+    cursor: pointer;
+  }
+
+  :global(.btn-outline:hover) {
+    background-color: #1a8161;
+    color: white;
+  }
+</style>

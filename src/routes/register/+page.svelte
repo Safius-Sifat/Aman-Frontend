@@ -1,12 +1,26 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { goto } from "$app/navigation"; // Update this path if your navigation helper is elsewhere
-  import { language } from "../../lib/stores/language.js"; // Update path as needed
-  import { user } from "../../lib/stores/user.js"; // Update path as needed
-  import LanguageSelector from "../../lib/components/LanguageSelector.svelte"; // Update path as needed
+  import { goto } from "$app/navigation";
+  import { language } from "../../lib/stores/language.js";
+  import { user } from "../../lib/stores/user.js";
+  import LanguageSelector from "../../lib/components/LanguageSelector.svelte";
   import VoiceRecorder from "../../lib/components/VoiceRecorder.svelte";
   import BackgroundInfoForm from "../../lib/components/BackgroundInfoForm.svelte";
   import ProgressSlider from "../../lib/components/ProgressSlider.svelte";
+  import GoogleAuthButton from "../../lib/components/GoogleAuthButton.svelte";
+
+  // Import lucide-svelte icons
+  import {
+    Users,
+    Camera,
+    Video,
+    Image,
+    Check,
+    RotateCcw,
+    X,
+    Heart,
+    Loader2,
+  } from "lucide-svelte";
 
   let mounted = false;
   let currentStep = "biometric"; // 'biometric', 'connections', 'matching', 'complete'
@@ -48,10 +62,11 @@
   let speechSupported = false;
   let infoError = "";
 
+  // Generalized, easy-to-read short story for all users to read aloud
   const voiceScript = {
-    en: "Hello, my name is [Your Name]. I am looking for my family members who I was separated from. I was born in [Your Birth Year] in [Your Birth Place]. I speak [Your Languages]. My family includes [Circumstances]. I hope this technology can help reunite us. Please help me find my loved ones. Thank you.",
-    es: "Hola, mi nombre es [Su Nombre]. Estoy buscando a los miembros de mi familia de los que fui separado. Nací en [Su Año de Nacimiento] en [Su Lugar de Nacimiento]. Hablo [Sus Idiomas]. Mi familia incluye [Miembros de la Familia]. Fuimos separados debido a [Circunstancias]. Espero que esta tecnología pueda ayudar a reunirnos. Por favor ayúdenme a encontrar a mis seres queridos. Gracias.",
-    ar: "مرحباً، اسمي [اسمك]. أبحث عن أفراد عائلتي الذين انفصلت عنهم. ولدت في [سنة ميلادك] في [مكان ميلادك]. أتحدث [لغاتك]. عائلتي تشمل [أفراد العائلة]. تم فصلنا بسبب [الظروف]. آمل أن تساعد هذه التكنولوجيا في لم شملنا. يرجى مساعدتي في العثور على أحبائي. شكراً لك.",
+    en: "Once upon a time, a family lived happily together in a small village. They shared meals, laughter, and stories every day. One day, a storm separated them, but they never lost hope. Each family member remembered the love and kindness they shared, believing they would be reunited again.",
+    es: "Había una vez una familia que vivía felizmente junta en un pequeño pueblo. Compartían comidas, risas e historias todos los días. Un día, una tormenta los separó, pero nunca perdieron la esperanza. Cada miembro de la familia recordaba el amor y la bondad que compartían, creyendo que volverían a reunirse.",
+    ar: "كان يا ما كان، عاشت عائلة بسعادة معًا في قرية صغيرة. كانوا يتشاركون الطعام والضحك والقصص كل يوم. في يوم من الأيام، فرقتهم عاصفة، لكنهم لم يفقدوا الأمل أبدًا. تذكر كل فرد من العائلة الحب واللطف الذي جمعهم، مؤمنين بأنهم سيلتقون من جديد.",
   };
 
   const translations = {
@@ -300,8 +315,28 @@
   }
 
   function completeRegistration() {
-    user.set({ name: "New User", email: "user@example.com" });
-    goto("/dashboard");
+    // Prepare registration data for authentication
+    const registrationData = {
+      capturedImage,
+      voiceRecording,
+      voiceRecordingUrl,
+      backgroundInfo,
+      personalInfo,
+      additionalInfo,
+    };
+
+    // This will be handled by the GoogleAuthButton component
+    return registrationData;
+  }
+
+  function handleAuthSuccess(event) {
+    console.log("Authentication successful:", event.detail);
+    // The redirect will be handled by Supabase
+  }
+
+  function handleAuthError(event) {
+    error = event.detail.error;
+    console.error("Authentication error:", event.detail.error);
   }
 
   async function openCamera() {
@@ -473,7 +508,7 @@
 </svelte:head>
 
 <div
-  class="min-h-screen bg-gradient-to-br from-blue-50 to-emerald-50"
+  class="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50"
   dir={isRtl ? "rtl" : "ltr"}
 >
   <!-- Header -->
@@ -483,9 +518,10 @@
         <div class="flex items-center">
           <div class="flex-shrink-0">
             <div
-              class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center"
+              class="w-8 h-8 rounded-lg flex items-center justify-center"
+              style="background-color: #1A8161;"
             >
-              <i data-lucide="users" class="w-5 h-5 text-white"></i>
+              <Users size={20} strokeWidth={2} class="text-white" />
             </div>
           </div>
           <div class="ml-3">
@@ -516,10 +552,10 @@
       <!-- Camera Step -->
       <div class="max-w-2xl mx-auto">
         <div class="text-center">
-          <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+          <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
             {t.steps.biometric.title}
           </h1>
-          <p class="text-xl text-gray-600 mb-6">
+          <p class="text-xl text-gray-600 mb-4">
             {t.steps.biometric.subtitle}
           </p>
           <p class="text-gray-600 mb-8">
@@ -553,10 +589,11 @@
               {:else}
                 <!-- Placeholder -->
                 <div class="text-center">
-                  <i
-                    data-lucide="camera"
-                    class="w-16 h-16 text-gray-400 mx-auto mb-4"
-                  ></i>
+                  <Camera
+                    size={64}
+                    strokeWidth={1.5}
+                    class="text-gray-400 mx-auto mb-4"
+                  />
                   <p class="text-gray-500">Camera preview will appear here</p>
                 </div>
               {/if}
@@ -572,39 +609,39 @@
               {#if !cameraActive}
                 <!-- Initial Controls -->
                 <button on:click={openCamera} class="btn-primary">
-                  <i data-lucide="video" class="w-4 h-4 mr-2"></i>
+                  <Video size={20} strokeWidth={2} class="mr-2" />
                   {t.steps.biometric.openCamera}
                 </button>
                 <button on:click={selectFromGallery} class="btn-outline">
-                  <i data-lucide="image" class="w-4 h-4 mr-2"></i>
+                  <Image size={20} strokeWidth={2} class="mr-2" />
                   {t.steps.biometric.selectFromGallery}
                 </button>
               {:else}
                 <!-- Capture Control -->
                 <button
                   on:click={capturePhoto}
-                  class="btn-primary text-lg px-8 py-3"
+                  class="btn-primary text-lg px-8 py-4"
                 >
-                  <i data-lucide="camera" class="w-5 h-5 mr-2"></i>
+                  <Camera size={24} strokeWidth={2} class="mr-3" />
                   {t.steps.biometric.action}
                 </button>
                 <button on:click={stopCamera} class="btn-outline">
-                  <i data-lucide="x" class="w-4 h-4 mr-2"></i>
+                  <X size={20} strokeWidth={2} class="mr-2" />
                   Cancel
                 </button>
               {/if}
             {:else}
               <!-- Photo Review Controls -->
               <button on:click={usePhoto} class="btn-primary">
-                <i data-lucide="check" class="w-4 h-4 mr-2"></i>
+                <Check size={20} strokeWidth={2} class="mr-2" />
                 {t.steps.biometric.usePhoto}
               </button>
               <button on:click={retakePhoto} class="btn-outline">
-                <i data-lucide="rotate-ccw" class="w-4 h-4 mr-2"></i>
+                <RotateCcw size={20} strokeWidth={2} class="mr-2" />
                 {t.steps.biometric.retake}
               </button>
               <button on:click={selectFromGallery} class="btn-outline">
-                <i data-lucide="image" class="w-4 h-4 mr-2"></i>
+                <Image size={20} strokeWidth={2} class="mr-2" />
                 {t.steps.biometric.selectFromGallery}
               </button>
             {/if}
@@ -626,10 +663,10 @@
       <!-- Voice Recording Step -->
       <div class="max-w-2xl mx-auto">
         <div class="mb-8 text-center">
-          <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+          <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
             {t.steps.connections.title}
           </h1>
-          <p class="text-xl text-gray-600 mb-6">
+          <p class="text-xl text-gray-600 mb-4">
             {t.steps.connections.subtitle}
           </p>
           <p class="text-gray-600 mb-8">
@@ -659,13 +696,13 @@
       <!-- Background Information Step -->
       <div class="max-w-2xl mx-auto">
         <div class="mb-8 text-center">
-          <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+          <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
             {t.steps.matching.title}
           </h1>
-          <p class="text-xl text-gray-600 mb-6">
+          <p class="text-xl text-gray-600 mb-4">
             {t.steps.matching.subtitle}
           </p>
-          <p class="text-gray-600 mb-8">
+          <p class="text-gray-600 mb-6">
             {t.steps.matching.description}
           </p>
         </div>
@@ -693,7 +730,7 @@
             disabled={loading || !backgroundInfo.trim()}
           >
             {#if loading}
-              <i data-lucide="loader-2" class="w-4 h-4 mr-2 animate-spin"></i>
+              <Loader2 size={20} strokeWidth={2} class="mr-2 animate-spin" />
               Verifying...
             {:else}
               {t.next}
@@ -715,8 +752,8 @@
             matches.
           </p>
           <p class="text-gray-600 mb-8">
-            You'll be redirected to your dashboard where you can monitor
-            progress and view potential matches.
+            Sign in to securely save your registration and access your
+            dashboard.
           </p>
         </div>
 
@@ -724,14 +761,15 @@
           <div
             class="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6"
           >
-            <i data-lucide="heart" class="w-12 h-12 text-green-600"></i>
+            <Heart size={48} strokeWidth={1.5} class="text-green-600" />
           </div>
-          <p class="text-gray-600 mb-6">
-            Click below to continue to your dashboard
-          </p>
-          <button on:click={completeRegistration} class="btn-primary">
-            Go to Dashboard
-          </button>
+
+          <GoogleAuthButton
+            language={$language}
+            registrationData={completeRegistration()}
+            on:auth-success={handleAuthSuccess}
+            on:auth-error={handleAuthError}
+          />
         </div>
       </div>
     {/if}
@@ -744,8 +782,63 @@
   </main>
 </div>
 
-{#if error}
-  <div class="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
-    <p class="text-red-800">{error}</p>
-  </div>
-{/if}
+<style>
+  :global(.btn-primary) {
+    background-color: #1a8161;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 1rem;
+    font-weight: 600;
+    transition: all 0.2s ease-in-out;
+    border: 2px solid #1a8161;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 6px -1px rgba(26, 129, 97, 0.2);
+  }
+
+  :global(.btn-primary:hover) {
+    background-color: #156b54;
+    border-color: #156b54;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 15px -3px rgba(26, 129, 97, 0.3);
+  }
+
+  :global(.btn-primary:active) {
+    transform: translateY(0);
+    box-shadow: 0 4px 6px -1px rgba(26, 129, 97, 0.2);
+  }
+
+  :global(.btn-primary:disabled) {
+    background-color: #9ca3af;
+    border-color: #9ca3af;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  :global(.btn-outline) {
+    background-color: transparent;
+    color: #1a8161;
+    padding: 0.75rem 1.5rem;
+    border-radius: 1rem;
+    font-weight: 600;
+    transition: all 0.2s ease-in-out;
+    border: 2px solid #1a8161;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  :global(.btn-outline:hover) {
+    background-color: #1a8161;
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 15px -3px rgba(26, 129, 97, 0.3);
+  }
+
+  :global(.btn-outline:active) {
+    transform: translateY(0);
+    box-shadow: 0 4px 6px -1px rgba(26, 129, 97, 0.2);
+  }
+</style>

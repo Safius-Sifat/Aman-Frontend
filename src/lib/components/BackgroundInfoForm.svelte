@@ -1,5 +1,6 @@
 <script>
     import { createEventDispatcher } from "svelte";
+    import { Mic, AlertCircle } from "lucide-svelte";
 
     const dispatch = createEventDispatcher();
 
@@ -30,6 +31,7 @@
     };
 
     $: t = translations[language] || translations.en;
+    $: isRtl = language === "ar";
 
     function startSpeechRecognition() {
         if (!speechSupported) return;
@@ -111,7 +113,7 @@
     }
 </script>
 
-<div class="background-info-form">
+<div class="background-info-form" dir={isRtl ? "rtl" : "ltr"}>
     <div class="mb-6">
         <label
             for="backgroundInfo"
@@ -125,7 +127,8 @@
                 bind:value={backgroundInfo}
                 on:input={handleTextInput}
                 placeholder={t.placeholder}
-                class="w-full h-64 px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                class="w-full h-64 px-4 py-3 pr-12 border-2 border-gray-300 rounded-xl focus:ring-2 focus:border-transparent resize-none transition-all duration-200"
+                style="focus:ring-color: rgba(26, 129, 97, 0.2); focus:border-color: #1A8161;"
                 rows="12"
             ></textarea>
 
@@ -145,7 +148,7 @@
                             class="w-4 h-4 bg-red-600 rounded-full animate-pulse"
                         ></div>
                     {:else}
-                        <i data-lucide="mic" class="w-4 h-4"></i>
+                        <Mic size={16} strokeWidth={2} />
                     {/if}
                 </button>
             {/if}
@@ -159,8 +162,11 @@
     {#if error}
         <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
             <div class="flex items-center">
-                <i data-lucide="alert-circle" class="w-5 h-5 text-red-600 mr-2"
-                ></i>
+                <AlertCircle
+                    size={20}
+                    strokeWidth={2}
+                    class="text-red-600 mr-2"
+                />
                 <p class="text-red-800">{error}</p>
             </div>
         </div>

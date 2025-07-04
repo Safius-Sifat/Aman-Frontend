@@ -47,7 +47,7 @@
     </div>
 
     <!-- Progress Bar Container -->
-    <div class="relative mb-8">
+    <div class="relative">
         <!-- Background Track -->
         <div
             class="w-full h-4 bg-gray-200 rounded-full overflow-hidden shadow-inner"
