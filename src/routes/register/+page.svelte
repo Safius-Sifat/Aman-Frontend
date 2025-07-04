@@ -3,6 +3,7 @@
   import { goto } from "$app/navigation";
   import { language } from "../../lib/stores/language.js";
   import { user } from "../../lib/stores/user.js";
+  import { supabase } from "../../lib/supabase.js";
   import LanguageSelector from "../../lib/components/LanguageSelector.svelte";
   import VoiceRecorder from "../../lib/components/VoiceRecorder.svelte";
   import BackgroundInfoForm from "../../lib/components/BackgroundInfoForm.svelte";
@@ -236,10 +237,22 @@
           ? 3
           : 4;
 
-  onMount(() => {
+  onMount(async () => {
     mounted = true;
-    if ($user) {
+
+    // Check if user is already authenticated with Supabase
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session) {
+      user.set({
+        id: session.user.id,
+        email: session.user.email,
+        firstName:
+          session.user.user_metadata?.full_name?.split(" ")[0] || "User",
+      });
       goto("/dashboard");
+      return;
     }
 
     // Check for speech recognition support
