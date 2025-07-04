@@ -130,7 +130,9 @@
         autoplay
         playsinline
         class="w-full h-64 bg-black rounded-lg object-cover"
-      ></video>
+      >
+        <track kind="captions" label="Camera preview (no audio)" />
+      </video>
 
       <div class="absolute inset-0 flex items-center justify-center">
         <div
